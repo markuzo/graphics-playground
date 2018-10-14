@@ -1,8 +1,5 @@
-# SSAO
+# Graphics playground
 
-Program for testing SSAO with deferred rendering.
+Repository for a bunch of graphics programming demos/tutorials. 
 
-## Dependencies:
-* GLFW
-* GLEW
-* GLM
+*Master is empty. Switch to other branch.*
