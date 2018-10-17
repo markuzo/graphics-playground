@@ -27,6 +27,6 @@ void main()
 {
     outPosition = vertexMV.xyz;
     outNormal = normalize(normal);
-    //outAlbedo = vec3(hsv2rgb(hue2hsv(z)));
-    outAlbedo = vec3(0.95);
+    outAlbedo = vec3(hsv2rgb(hue2hsv(z)));
+    //outAlbedo = vec3(0.95);
 }

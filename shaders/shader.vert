@@ -18,5 +18,4 @@ void main() {
     z = vertexIn.y;
 
     gl_Position = projectionMat * viewMat * modelMat * vec4(vertexIn, 1.0);
-
 }

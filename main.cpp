@@ -126,7 +126,7 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, gNormalTexture, 0);
 
-    // now the normal texture
+    // now the albedo texture
     GLuint gAlbedoTexture;
     glGenTextures(1, &gAlbedoTexture);
     glBindTexture(GL_TEXTURE_2D, gAlbedoTexture);
@@ -240,13 +240,13 @@ int main() {
     glBindVertexArray(0);
 
     // Create and compile our GLSL program from the shaders
-    auto ppShader = loadShaders( "ppshader.vert", "ppshader.frag" );
+    auto ppShader = loadShaders( "shaders/ppshader.vert", "shaders/ppshader.frag" );
 
     auto modelMat      = glm::mat4(1.0f);
     auto projectionMat = glm::perspective(glm::radians(45.0f), (float)g_width/(float)g_height, 0.1f, 100.f);
 
-    auto shader  = loadShaders("shader.vert",  "shader.frag");
-    auto gshader = loadShaders("gshader.vert", "gshader.frag");
+    auto shader  = loadShaders("shaders/shader.vert",  "shaders/shader.frag");
+    auto gshader = loadShaders("shaders/gshader.vert", "shaders/gshader.frag");
 
     auto position   = glm::vec3(0.f,0.1f,0.5f);
     auto light      = glm::vec3(0.f,0.1f,0.5f);
@@ -264,6 +264,7 @@ int main() {
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
     glClearColor(0.1f,0.2f,0.0f,1.0f);
+
     while ((glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) 
             && !glfwWindowShouldClose(window)) {
 
@@ -344,9 +345,10 @@ int main() {
         glBindVertexArray(framebufferVao);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // texture binds
-        glUniform1i(1, 0);
+        // texture binds (layout 0 is vertex in, 123 for textures 012)
+        glUniform1i(1, 0); 
         glUniform1i(2, 1);
+        glUniform1i(3, 2);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
