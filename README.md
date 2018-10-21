@@ -1,6 +1,6 @@
 # SSAO
 
-Program for testing SSAO with deferred rendering.
+Program for testing SSAO with deferred rendering. Put Stanford bunny (PLY) into data folder (see code data loading).
 
 ## Dependencies:
 * GLFW

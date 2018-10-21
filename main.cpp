@@ -62,15 +62,7 @@ int main() {
     //const auto filename = "/home/markuzo/work/data/lucy/lucy.ply";
     
     auto [ vertices, indices, normals ] = PlyReader().readObj(filename);
-    std::cout << vertices.size() << " " << indices.size() << " " << normals.size() << std::endl;
-
-    //for (auto v : vertices) { std::cout << v << std::endl; }
-    //for (auto n : normals)  { std::cout << n << std::endl; }
-    //for (auto i : indices)  { std::cout << i << std::endl; }
-
-    auto vsizeof = [] (const auto& v) {
-        return sizeof(v[0])*v.size();
-    };
+    auto vsizeof = [] (const auto& v) { return sizeof(v[0])*v.size(); };
 
     // opengl
     GLuint vao;
@@ -151,40 +143,42 @@ int main() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // now the SSAO stuff
-        unsigned int ssaoFBO, ssaoBlurFBO;
-        glGenFramebuffers(1, &ssaoFBO);  glGenFramebuffers(1, &ssaoBlurFBO);
-        glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
-        unsigned int ssaoColorBuffer, ssaoColorBufferBlur;
-        // SSAO color buffer
-        glGenTextures(1, &ssaoColorBuffer);
-        glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "SSAO Framebuffer not complete!" << std::endl;
-        // and blur stage
-        glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
-        glGenTextures(1, &ssaoColorBufferBlur);
-        glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "SSAO Blur Framebuffer not complete!" << std::endl;
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GLuint ssaoFBO, ssaoBlurFBO;
+    glGenFramebuffers(1, &ssaoFBO);  
+    glGenFramebuffers(1, &ssaoBlurFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+    GLuint ssaoColorBuffer, ssaoColorBufferBlur;
+    // SSAO color buffer
+    glGenTextures(1, &ssaoColorBuffer);
+    glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "SSAO Framebuffer not complete!" << std::endl;
+    // and blur stage
+    glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+    glGenTextures(1, &ssaoColorBufferBlur);
+    glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "SSAO Blur Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // generate sample kernel
     std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
-    for (unsigned int i = 0; i < 64; ++i) {
+    int kernelSize = 8;
+    for (unsigned int i = 0; i < kernelSize; ++i) {
         glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
         sample = glm::normalize(sample);
         sample *= randomFloats(generator);
-        float scale = float(i) / 64.0;
+        float scale = float(i) / (float)kernelSize;
 
         // scale samples s.t. they're more aligned to center of kernel
         scale = lerp(0.1f, 1.0f, scale * scale);
@@ -213,13 +207,6 @@ int main() {
     glGenVertexArrays(1, &framebufferVao);
     glBindVertexArray(framebufferVao);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, gPositionTexture);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, gNormalTexture);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, gAlbedoTexture);
-
     static const GLfloat framebufferVboData[] = {
         -1.0f, -1.0f, 0.0f,
         1.0f, -1.0f, 0.0f,
@@ -239,14 +226,14 @@ int main() {
 
     glBindVertexArray(0);
 
-    // Create and compile our GLSL program from the shaders
-    auto ppShader = loadShaders( "shaders/ppshader.vert", "shaders/ppshader.frag" );
-
     auto modelMat      = glm::mat4(1.0f);
     auto projectionMat = glm::perspective(glm::radians(45.0f), (float)g_width/(float)g_height, 0.1f, 100.f);
 
-    auto shader  = loadShaders("shaders/shader.vert",  "shaders/shader.frag");
-    auto gshader = loadShaders("shaders/gshader.vert", "shaders/gshader.frag");
+    auto shader         = loadShaders("shaders/shader.vert",   "shaders/shader.frag");
+    auto gshader        = loadShaders("shaders/gshader.vert",  "shaders/gshader.frag");
+    auto ssaoshader     = loadShaders("shaders/ppshader.vert", "shaders/ssaoshader.frag");
+    auto ssaoblurshader = loadShaders("shaders/ppshader.vert", "shaders/ssaoblurshader.frag");
+    auto ppShader       = loadShaders("shaders/ppshader.vert", "shaders/ppshader.frag" );
 
     auto position   = glm::vec3(0.f,0.1f,0.5f);
     auto light      = glm::vec3(0.f,0.1f,0.5f);
@@ -273,12 +260,17 @@ int main() {
             projectionMat = glm::perspective(glm::radians(45.0f), (float)g_width/(float)g_height, 0.01f, 100.f);
             windowResized = false; 
 
+            // recreate all textures and fbos
             glBindTexture(GL_TEXTURE_2D, gPositionTexture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0, GL_RGB, GL_FLOAT, nullptr);
             glBindTexture(GL_TEXTURE_2D, gNormalTexture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0, GL_RGB, GL_FLOAT, nullptr);
             glBindTexture(GL_TEXTURE_2D, gAlbedoTexture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width, g_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+            glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, nullptr);
+            glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g_width, g_height, 0, GL_RGB, GL_FLOAT, nullptr);
             glBindRenderbuffer(GL_RENDERBUFFER, depthBufferRb);
             glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, g_width, g_height);
         }
@@ -321,40 +313,79 @@ int main() {
         auto viewMat = glm::lookAt(position, position+direction, up);
         auto normalMat = glm::mat3(glm::mat4(1.0f)); 
 
+        // 1. first, gbuffer fbo
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        //glUseProgram(shader);
         glUseProgram(gshader);
         glBindVertexArray(vao);
-
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUniformMatrix4fv(2, 1, GL_FALSE, &modelMat[0][0]);
         glUniformMatrix4fv(3, 1, GL_FALSE, &viewMat[0][0]);
         glUniformMatrix4fv(4, 1, GL_FALSE, &projectionMat[0][0]);
         glUniformMatrix3fv(5, 1, GL_FALSE, &normalMat[0][0]);
-
-        // needed for normal shader
-        //glUniform4f(6, position.x, position.y, position.z, 1.0f);
-        //glUniform4f(7, light.x, light.y, light.z, 1.0f);
-
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, (void*)0);
 
-        // framebuffer
+        // 2. second, ssao
+        glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+        glBindVertexArray(framebufferVao);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(ssaoshader);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPositionTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormalTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, noiseTexture);
+        glUniform1i(0, 0); 
+        glUniform1i(1, 1);
+        glUniform1i(2, 2);
+        glUniformMatrix4fv(3, 1, GL_FALSE, &projectionMat[0][0]);
+        glUniform1f(4, g_width);
+        glUniform1f(5, g_height);
+        glUniform1i(6, kernelSize);
+        glUniform1f(7, 0.5);
+        glUniform1f(8, 0.025);
+        glUniform3fv(glGetUniformLocation(ssaoshader, "samples"), kernelSize, &ssaoKernel[0][0]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // 3. third, ssao blur
+        glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+        glBindVertexArray(framebufferVao);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(ssaoblurshader);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+        glUniform1i(0, 0); 
+        glUniform1i(1, 1); 
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
+        // 4. fourth, lighting step
         glUseProgram(ppShader);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindVertexArray(framebufferVao);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // texture binds (layout 0 is vertex in, 123 for textures 012)
-        glUniform1i(1, 0); 
-        glUniform1i(2, 1);
-        glUniform1i(3, 2);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPositionTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormalTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gAlbedoTexture);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+        glUniform1i(0, 0); 
+        glUniform1i(1, 1);
+        glUniform1i(2, 2);
+        glUniform1i(3, 3);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         glfwSwapBuffers(window);
-        glBindVertexArray(0);
-        glfwPollEvents(); 
 
+        glfwPollEvents(); 
         lastTime = (float)glfwGetTime();
     }
 
