@@ -28,6 +28,8 @@ void main()
     vec3 fragPos = texture(gPosition, UV).xyz;
     vec3 normal = normalize(texture(gNormal, UV).xyz);
     vec3 randomVec = normalize(texture(texNoise, UV * noiseScale).xyz);
+    //vec3 randomVec = fragPos;
+
 
     // create TBN change-of-basis matrix: from tangent-space to view-space
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));

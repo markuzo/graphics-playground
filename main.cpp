@@ -13,9 +13,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "plyreader.h"
-
-GLuint loadShaders(const char * vertexFilePath, const char * fragmentFilePath);
-float lerp(float a, float b, float f);
+#include "shader.h"
 
 int g_width = 1024;
 int g_height = 768;
@@ -174,13 +172,16 @@ int main() {
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
     int kernelSize = 8;
+    const auto lerp = [] (float a, float b, float f) {
+        return a + f * (b - a);
+    };
     for (unsigned int i = 0; i < kernelSize; ++i) {
         glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
         sample = glm::normalize(sample);
         sample *= randomFloats(generator);
-        float scale = float(i) / (float)kernelSize;
 
-        // scale samples s.t. they're more aligned to center of kernel
+        // scale exponentially
+        float scale = float(i) / (float)kernelSize;
         scale = lerp(0.1f, 1.0f, scale * scale);
         sample *= scale;
         ssaoKernel.push_back(sample);
@@ -229,11 +230,10 @@ int main() {
     auto modelMat      = glm::mat4(1.0f);
     auto projectionMat = glm::perspective(glm::radians(45.0f), (float)g_width/(float)g_height, 0.1f, 100.f);
 
-    auto shader         = loadShaders("shaders/shader.vert",   "shaders/shader.frag");
-    auto gshader        = loadShaders("shaders/gshader.vert",  "shaders/gshader.frag");
-    auto ssaoshader     = loadShaders("shaders/ppshader.vert", "shaders/ssaoshader.frag");
-    auto ssaoblurshader = loadShaders("shaders/ppshader.vert", "shaders/ssaoblurshader.frag");
-    auto ppShader       = loadShaders("shaders/ppshader.vert", "shaders/ppshader.frag" );
+    auto gshader        = Shader("shaders/gshader.vert",  "shaders/gshader.frag");
+    auto ssaoshader     = Shader("shaders/ppshader.vert", "shaders/ssaoshader.frag");
+    auto ssaoblurshader = Shader("shaders/ppshader.vert", "shaders/ssaoblurshader.frag");
+    auto ppShader       = Shader("shaders/ppshader.vert", "shaders/ppshader.frag" );
 
     auto position   = glm::vec3(0.f,0.1f,0.5f);
     auto light      = glm::vec3(0.f,0.1f,0.5f);
@@ -315,7 +315,7 @@ int main() {
 
         // 1. first, gbuffer fbo
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-        glUseProgram(gshader);
+        gshader.use();
         glBindVertexArray(vao);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUniformMatrix4fv(2, 1, GL_FALSE, &modelMat[0][0]);
@@ -328,7 +328,7 @@ int main() {
         glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
         glBindVertexArray(framebufferVao);
         glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(ssaoshader);
+        ssaoshader.use();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPositionTexture);
         glActiveTexture(GL_TEXTURE1);
@@ -344,7 +344,7 @@ int main() {
         glUniform1i(6, kernelSize);
         glUniform1f(7, 0.5);
         glUniform1f(8, 0.025);
-        glUniform3fv(glGetUniformLocation(ssaoshader, "samples"), kernelSize, &ssaoKernel[0][0]);
+        glUniform3fv(glGetUniformLocation(ssaoshader.id(), "samples"), kernelSize, &ssaoKernel[0][0]);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -353,17 +353,17 @@ int main() {
         glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
         glBindVertexArray(framebufferVao);
         glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(ssaoblurshader);
+        ssaoblurshader.use();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
         glUniform1i(0, 0); 
-        glUniform1i(1, 1); 
+        glUniform1i(1, 1); // shouldBlur
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         
         // 4. fourth, lighting step
-        glUseProgram(ppShader);
+        ppShader.use();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindVertexArray(framebufferVao);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -395,94 +395,4 @@ int main() {
     return 0;
 }
 
-float lerp(float a, float b, float f) {
-    return a + f * (b - a);
-}
 
-GLuint loadShaders(const char * vertexFilePath, const char * fragmentFilePath) {
-	GLuint vertexShaderID   = glCreateShader(GL_VERTEX_SHADER);
-	GLuint fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-
-	// Read the Vertex Shader code from the file
-	std::string vertexShaderCode;
-	std::ifstream vertexShaderStream(vertexFilePath, std::ios::in);
-	if (vertexShaderStream.is_open()){
-		std::stringstream ss;
-		ss << vertexShaderStream.rdbuf();
-		vertexShaderCode = ss.str();
-		vertexShaderStream.close();
-	} else {
-        throw std::runtime_error("vshader file path doesn't exist.");
-	}
-
-	// Read the Fragment Shader code from the file
-	std::string fragmentShaderCode;
-	std::ifstream fragmentShaderStream(fragmentFilePath, std::ios::in);
-	if(fragmentShaderStream.is_open()){
-		std::stringstream ss;
-		ss << fragmentShaderStream.rdbuf();
-		fragmentShaderCode = ss.str();
-		fragmentShaderStream.close();
-	} else {
-        throw std::runtime_error("fshader file path doesn't exist.");
-    }
-
-	GLint result = GL_FALSE;
-	int infoLogLength;
-
-    std::cout << "compiling shader: " << vertexFilePath << std::endl;
-	char const * vertexSourcePointer = vertexShaderCode.c_str();
-	glShaderSource(vertexShaderID, 1, &vertexSourcePointer , nullptr);
-	glCompileShader(vertexShaderID);
-
-    auto printVectorChar = [](const auto& v) {
-        for (auto c : v)
-            std::cout << c;
-        std::cout << std::endl;
-    };
-
-	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &result);
-	glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &infoLogLength);
-	if (infoLogLength > 0) {
-		std::vector<char> vertexShaderErrorMessage(infoLogLength+1);
-		glGetShaderInfoLog(vertexShaderID, infoLogLength, nullptr, &vertexShaderErrorMessage[0]);
-        printVectorChar(vertexShaderErrorMessage);
-	}
-
-    std::cout << "compiling shader: " << fragmentFilePath << std::endl;
-	char const * fragmentSourcePointer = fragmentShaderCode.c_str();
-	glShaderSource(fragmentShaderID, 1, &fragmentSourcePointer , nullptr);
-	glCompileShader(fragmentShaderID);
-
-	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &result);
-	glGetShaderiv(fragmentShaderID, GL_INFO_LOG_LENGTH, &infoLogLength);
-	if (infoLogLength > 0) {
-		std::vector<char> fragmentShaderErrorMessage(infoLogLength+1);
-		glGetShaderInfoLog(fragmentShaderID, infoLogLength, nullptr, &fragmentShaderErrorMessage[0]);
-        printVectorChar(fragmentShaderErrorMessage);
-	}
-
-	// Link the program
-	GLuint programID = glCreateProgram();
-	glAttachShader(programID, vertexShaderID);
-	glAttachShader(programID, fragmentShaderID);
-	glLinkProgram(programID);
-
-	// Check the program
-	glGetProgramiv(programID, GL_LINK_STATUS, &result);
-	glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &infoLogLength);
-	if (infoLogLength > 0) {
-		std::vector<char> programErrorMessage(infoLogLength+1);
-		glGetProgramInfoLog(programID, infoLogLength, NULL, &programErrorMessage[0]);
-        printVectorChar(programErrorMessage);
-	}
-
-	
-	glDetachShader(programID, vertexShaderID);
-	glDetachShader(programID, fragmentShaderID);
-	
-	glDeleteShader(vertexShaderID);
-	glDeleteShader(fragmentShaderID);
-
-	return programID;
-}
