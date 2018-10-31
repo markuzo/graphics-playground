@@ -12,18 +12,85 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include "plyreader.h"
 #include "shader.h"
 
 int g_width = 1024;
 int g_height = 768;
-bool windowResized = false;
+bool g_windowResized = false;
+GLFWwindow* g_window = nullptr;
 
-void onWindowResize(GLFWwindow* window, int width, int height)
-{
+glm::vec3 g_position(0.f,0.1f,0.5f);
+glm::vec3 g_light(0.f,0.1f,0.5f);
+glm::vec3 g_lightColor(0.f,0.1f,0.5f);
+
+float g_horizontalAngle = 3.14f;
+float g_verticalAngle = 0.f;
+float g_speed = 50.0f;
+float g_mouseSpeed = 5.0f;
+
+int g_shouldBlur = 1;
+float g_radius = 0.5f;
+float g_bias = 0.025f;
+
+glm::mat4 g_viewMat(1.f);
+
+void onWindowResize(GLFWwindow* window, int width, int height) {
     g_width = width;
     g_height = height;
-    windowResized = true;
+    g_windowResized = true;
+}
+
+void processInput(float deltaTime, double xpos, double ypos) {
+        g_horizontalAngle += g_mouseSpeed * deltaTime * float(g_width/2  - xpos );
+        g_verticalAngle   += g_mouseSpeed * deltaTime * float(g_height/2 - ypos );
+
+        auto direction = glm::vec3(
+            cos(g_verticalAngle) * sin(g_horizontalAngle),
+            sin(g_verticalAngle),
+            cos(g_verticalAngle) * cos(g_horizontalAngle)
+        );
+
+        auto right = glm::vec3(
+            sin(g_horizontalAngle - 3.14f/2.0f),
+            0,
+            cos(g_horizontalAngle - 3.14f/2.0f)
+        );
+        auto up = glm::cross( right, direction );
+
+        if (glfwGetKey(g_window, GLFW_KEY_W) == GLFW_PRESS) {
+            g_position += direction * deltaTime * g_speed;
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_S) == GLFW_PRESS) {
+            g_position -= direction * deltaTime * g_speed;
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_D) == GLFW_PRESS) {
+            g_position += right * deltaTime * g_speed;
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_A) == GLFW_PRESS) {
+            g_position -= right * deltaTime * g_speed;
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_B) == GLFW_PRESS) {
+            g_shouldBlur = g_shouldBlur == 0 ? 1 : 0;
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_R) == GLFW_PRESS) {
+            g_radius = g_radius == 0.25 ? 0.25 : g_radius-0.25; 
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_T) == GLFW_PRESS) {
+            g_radius += 0.25; 
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
+            g_bias = g_bias == 0.005 ? 0.005 : g_bias-0.005; 
+        }
+        if (glfwGetKey(g_window, GLFW_KEY_G) == GLFW_PRESS) {
+            g_bias += 0.005; 
+        }
+
+        g_viewMat = glm::lookAt(g_position, g_position+direction, up);
 }
 
 int main() {
@@ -36,22 +103,29 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    auto window = glfwCreateWindow(g_width, g_height, "SSAO test", nullptr, nullptr);
-    if (window == nullptr) {
+    g_window = glfwCreateWindow(g_width, g_height, "SSAO test", nullptr, nullptr);
+    if (g_window == nullptr) {
         std::cout << "Can't create glfw window" << std::endl;
         return 1;
     }
 
     // getting the window size in case the window manager 
     // changed size (common in tiling WM)
-    glfwGetWindowSize(window, &g_width, &g_height);
-    glfwSetWindowSizeCallback(window, onWindowResize);
+    glfwGetWindowSize(g_window, &g_width, &g_height);
+    glfwSetWindowSizeCallback(g_window, onWindowResize);
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(g_window);
     if (glewInit() != GLEW_OK) {
         std::cout << "Can't init glew" << std::endl;
         return 1;
     }
+
+    // UI setup
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui_ImplGlfw_InitForOpenGL(g_window, true);
+    ImGui_ImplOpenGL3_Init("#version 450 core");
+    ImGui::StyleColorsDark();
 
     // data 
     //const auto filename = "/home/markuzo/work/data/dragon_recon/dragon_vrip.ply";
@@ -171,7 +245,7 @@ int main() {
     std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
-    int kernelSize = 8;
+    int kernelSize = 4;
     const auto lerp = [] (float a, float b, float f) {
         return a + f * (b - a);
     };
@@ -235,15 +309,6 @@ int main() {
     auto ssaoblurshader = Shader("shaders/ppshader.vert", "shaders/ssaoblurshader.frag");
     auto ppShader       = Shader("shaders/ppshader.vert", "shaders/ppshader.frag" );
 
-    auto position   = glm::vec3(0.f,0.1f,0.5f);
-    auto light      = glm::vec3(0.f,0.1f,0.5f);
-    auto lightColor = glm::vec3(0.2,0.2,0.7);
-
-    auto horizontalAngle = 3.14f;
-    auto verticalAngle = 0.f;
-    auto speed = 50.0f;
-    auto mouseSpeed = 5.0f;
-
     auto lastTime = (float) glfwGetTime();
     
     glViewport(0,0, g_width, g_height);
@@ -252,13 +317,13 @@ int main() {
     glEnable(GL_CULL_FACE);
     glClearColor(0.1f,0.2f,0.0f,1.0f);
 
-    while ((glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) 
-            && !glfwWindowShouldClose(window)) {
+    while ((glfwGetKey(g_window, GLFW_KEY_ESCAPE) != GLFW_PRESS) 
+            && !glfwWindowShouldClose(g_window)) {
 
-        if (windowResized) {
+        if (g_windowResized) {
             glViewport(0,0, g_width, g_height);
             projectionMat = glm::perspective(glm::radians(45.0f), (float)g_width/(float)g_height, 0.01f, 100.f);
-            windowResized = false; 
+            g_windowResized = false; 
 
             // recreate all textures and fbos
             glBindTexture(GL_TEXTURE_2D, gPositionTexture);
@@ -276,41 +341,13 @@ int main() {
         }
 
         double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
-        glfwSetCursorPos(window,  g_width/2,  g_height/2);
+        glfwGetCursorPos(g_window, &xpos, &ypos);
+        glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
 
         float deltaTime = (float)glfwGetTime() - lastTime;
 
-        horizontalAngle += mouseSpeed * deltaTime * float(g_width/2  - xpos );
-        verticalAngle   += mouseSpeed * deltaTime * float(g_height/2 - ypos );
+        processInput(deltaTime, xpos, ypos);
 
-        auto direction = glm::vec3(
-            cos(verticalAngle) * sin(horizontalAngle),
-            sin(verticalAngle),
-            cos(verticalAngle) * cos(horizontalAngle)
-        );
-
-        auto right = glm::vec3(
-            sin(horizontalAngle - 3.14f/2.0f),
-            0,
-            cos(horizontalAngle - 3.14f/2.0f)
-        );
-        auto up = glm::cross( right, direction );
-
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            position += direction * deltaTime * speed;
-        }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            position -= direction * deltaTime * speed;
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            position += right * deltaTime * speed;
-        }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            position -= right * deltaTime * speed;
-        }
-
-        auto viewMat = glm::lookAt(position, position+direction, up);
         auto normalMat = glm::mat3(glm::mat4(1.0f)); 
 
         // 1. first, gbuffer fbo
@@ -319,7 +356,7 @@ int main() {
         glBindVertexArray(vao);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUniformMatrix4fv(2, 1, GL_FALSE, &modelMat[0][0]);
-        glUniformMatrix4fv(3, 1, GL_FALSE, &viewMat[0][0]);
+        glUniformMatrix4fv(3, 1, GL_FALSE, &g_viewMat[0][0]);
         glUniformMatrix4fv(4, 1, GL_FALSE, &projectionMat[0][0]);
         glUniformMatrix3fv(5, 1, GL_FALSE, &normalMat[0][0]);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, (void*)0);
@@ -342,8 +379,8 @@ int main() {
         glUniform1f(4, g_width);
         glUniform1f(5, g_height);
         glUniform1i(6, kernelSize);
-        glUniform1f(7, 0.5);
-        glUniform1f(8, 0.025);
+        glUniform1f(7, g_radius);
+        glUniform1f(8, g_bias);
         glUniform3fv(glGetUniformLocation(ssaoshader.id(), "samples"), kernelSize, &ssaoKernel[0][0]);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
@@ -357,7 +394,7 @@ int main() {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
         glUniform1i(0, 0); 
-        glUniform1i(1, 1); // shouldBlur
+        glUniform1i(1, g_shouldBlur); 
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -383,13 +420,27 @@ int main() {
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        glfwSwapBuffers(window);
+        // UI
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::Begin("First window");
+        ImGui::Text("Some awesome text");
+        ImGui::End();
+        ImGui::Render();
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glfwSwapBuffers(g_window);
 
         glfwPollEvents(); 
         lastTime = (float)glfwGetTime();
     }
 
-    glfwDestroyWindow(window);
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    glfwDestroyWindow(g_window);
     glfwTerminate();
 
     return 0;

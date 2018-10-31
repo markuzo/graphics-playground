@@ -6,6 +6,8 @@ Program for testing SSAO with deferred rendering. Put Stanford bunny (PLY) into 
 * GLFW
 * GLEW
 * GLM
+* Dear ImGui (in thirdparty/)
+* C++17
 
 ## Structure:
 Follows the following [tutorial](https://learnopengl.com/Advanced-Lighting/SSAO), with minor modifications. 
