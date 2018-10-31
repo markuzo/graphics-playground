@@ -33,7 +33,7 @@ float g_verticalAngle = 0.f;
 float g_speed = 50.0f;
 float g_mouseSpeed = 5.0f;
 
-int g_shouldBlur = 1;
+bool g_shouldBlur = true;
 float g_radius = 0.5f;
 float g_bias = 0.025f;
 
@@ -80,25 +80,10 @@ void processInput(float deltaTime, double xpos, double ypos) {
     if (glfwGetKey(g_window, GLFW_KEY_A) == GLFW_PRESS) {
         g_position -= right * deltaTime * g_speed;
     }
-    if (glfwGetKey(g_window, GLFW_KEY_B) == GLFW_PRESS) {
-        g_shouldBlur = g_shouldBlur == 0 ? 1 : 0;
-    }
-    if (glfwGetKey(g_window, GLFW_KEY_R) == GLFW_PRESS) {
-        g_radius = g_radius == 0.25 ? 0.25 : g_radius-0.25; 
-    }
-    if (glfwGetKey(g_window, GLFW_KEY_T) == GLFW_PRESS) {
-        g_radius += 0.25; 
-    }
-    //if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
-    //    g_bias = g_bias == 0.005 ? 0.005 : g_bias-0.005; 
-    //}
     if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
         if (!g_isFlying)
             glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
         g_isFlying = !g_isFlying;    
-    }
-    if (glfwGetKey(g_window, GLFW_KEY_G) == GLFW_PRESS) {
-        g_bias += 0.005; 
     }
 
     g_viewMat = glm::lookAt(g_position, g_position+direction, up);
@@ -405,7 +390,7 @@ int main() {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
         glUniform1i(0, 0); 
-        glUniform1i(1, g_shouldBlur); 
+        glUniform1i(1, g_shouldBlur ? 1 : 0); 
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -435,8 +420,10 @@ int main() {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::Begin("First window");
-        ImGui::Text("Some awesome text for Sarah");
+        ImGui::Begin("Settings");
+        ImGui::Checkbox("Blur", &g_shouldBlur);
+        ImGui::SliderFloat("Radius", &g_radius, 0.0f, 5.0f);
+        ImGui::SliderFloat("Bias", &g_bias, 0.0f, 1.0f);
         ImGui::End();
         ImGui::Render();
 
