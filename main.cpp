@@ -37,6 +37,8 @@ int g_shouldBlur = 1;
 float g_radius = 0.5f;
 float g_bias = 0.025f;
 
+bool g_isFlying = false;
+
 glm::mat4 g_viewMat(1.f);
 
 void onWindowResize(GLFWwindow* window, int width, int height) {
@@ -46,51 +48,60 @@ void onWindowResize(GLFWwindow* window, int width, int height) {
 }
 
 void processInput(float deltaTime, double xpos, double ypos) {
-        g_horizontalAngle += g_mouseSpeed * deltaTime * float(g_width/2  - xpos );
-        g_verticalAngle   += g_mouseSpeed * deltaTime * float(g_height/2 - ypos );
 
-        auto direction = glm::vec3(
-            cos(g_verticalAngle) * sin(g_horizontalAngle),
-            sin(g_verticalAngle),
-            cos(g_verticalAngle) * cos(g_horizontalAngle)
-        );
+    if (g_isFlying) {
+        g_horizontalAngle += g_mouseSpeed * deltaTime * float(g_width/2 - xpos);
+        g_verticalAngle   += g_mouseSpeed * deltaTime * float(g_height/2 - ypos);
+        glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
+    }
 
-        auto right = glm::vec3(
-            sin(g_horizontalAngle - 3.14f/2.0f),
-            0,
-            cos(g_horizontalAngle - 3.14f/2.0f)
-        );
-        auto up = glm::cross( right, direction );
+    auto direction = glm::vec3(
+        cos(g_verticalAngle) * sin(g_horizontalAngle),
+        sin(g_verticalAngle),
+        cos(g_verticalAngle) * cos(g_horizontalAngle)
+    );
 
-        if (glfwGetKey(g_window, GLFW_KEY_W) == GLFW_PRESS) {
-            g_position += direction * deltaTime * g_speed;
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_S) == GLFW_PRESS) {
-            g_position -= direction * deltaTime * g_speed;
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_D) == GLFW_PRESS) {
-            g_position += right * deltaTime * g_speed;
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_A) == GLFW_PRESS) {
-            g_position -= right * deltaTime * g_speed;
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_B) == GLFW_PRESS) {
-            g_shouldBlur = g_shouldBlur == 0 ? 1 : 0;
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_R) == GLFW_PRESS) {
-            g_radius = g_radius == 0.25 ? 0.25 : g_radius-0.25; 
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_T) == GLFW_PRESS) {
-            g_radius += 0.25; 
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
-            g_bias = g_bias == 0.005 ? 0.005 : g_bias-0.005; 
-        }
-        if (glfwGetKey(g_window, GLFW_KEY_G) == GLFW_PRESS) {
-            g_bias += 0.005; 
-        }
+    auto right = glm::vec3(
+        sin(g_horizontalAngle - 3.14f/2.0f),
+        0,
+        cos(g_horizontalAngle - 3.14f/2.0f)
+    );
+    auto up = glm::cross( right, direction );
 
-        g_viewMat = glm::lookAt(g_position, g_position+direction, up);
+    if (glfwGetKey(g_window, GLFW_KEY_W) == GLFW_PRESS) {
+        g_position += direction * deltaTime * g_speed;
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_S) == GLFW_PRESS) {
+        g_position -= direction * deltaTime * g_speed;
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_D) == GLFW_PRESS) {
+        g_position += right * deltaTime * g_speed;
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_A) == GLFW_PRESS) {
+        g_position -= right * deltaTime * g_speed;
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_B) == GLFW_PRESS) {
+        g_shouldBlur = g_shouldBlur == 0 ? 1 : 0;
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_R) == GLFW_PRESS) {
+        g_radius = g_radius == 0.25 ? 0.25 : g_radius-0.25; 
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_T) == GLFW_PRESS) {
+        g_radius += 0.25; 
+    }
+    //if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
+    //    g_bias = g_bias == 0.005 ? 0.005 : g_bias-0.005; 
+    //}
+    if (glfwGetKey(g_window, GLFW_KEY_F) == GLFW_PRESS) {
+        if (!g_isFlying)
+            glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
+        g_isFlying = !g_isFlying;    
+    }
+    if (glfwGetKey(g_window, GLFW_KEY_G) == GLFW_PRESS) {
+        g_bias += 0.005; 
+    }
+
+    g_viewMat = glm::lookAt(g_position, g_position+direction, up);
 }
 
 int main() {
@@ -113,6 +124,7 @@ int main() {
     // changed size (common in tiling WM)
     glfwGetWindowSize(g_window, &g_width, &g_height);
     glfwSetWindowSizeCallback(g_window, onWindowResize);
+    glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
 
     glfwMakeContextCurrent(g_window);
     if (glewInit() != GLEW_OK) {
@@ -342,7 +354,6 @@ int main() {
 
         double xpos, ypos;
         glfwGetCursorPos(g_window, &xpos, &ypos);
-        glfwSetCursorPos(g_window,  g_width/2,  g_height/2);
 
         float deltaTime = (float)glfwGetTime() - lastTime;
 
@@ -425,7 +436,7 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGui::Begin("First window");
-        ImGui::Text("Some awesome text");
+        ImGui::Text("Some awesome text for Sarah");
         ImGui::End();
         ImGui::Render();
 
