@@ -125,10 +125,10 @@ int main() {
     ImGui::StyleColorsDark();
 
     // data 
-    //const auto filename = "/home/markuzo/work/data/dragon_recon/dragon_vrip.ply";
-    //const auto filename = "/home/markuzo/work/data/triangle/triangle.ply";
-    const auto filename = "/home/markuzo/work/data/bunny/bunny/reconstruction/bun_zipper.ply";
-    //const auto filename = "/home/markuzo/work/data/lucy/lucy.ply";
+    //const auto filename = "data/dragon_vrip.ply";
+    //const auto filename = "data/triangle.ply";
+    //const auto filename = "data/lucy.ply";
+    const auto filename = "data/bun_zipper.ply";
     
     auto [ vertices, indices, normals ] = PlyReader().readObj(filename);
     auto vsizeof = [] (const auto& v) { return sizeof(v[0])*v.size(); };
