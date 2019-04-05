@@ -17,7 +17,7 @@ LIBRARIES += -lGL
 DEFINES = -DIMGUI_IMPL_OPENGL_LOADER_GLEW
 
 main: main.cpp
-	g++ -g --std=c++17 $(SOURCES) $(INCLUDES) $(DEFINES) -o main $(LIBRARIES)
+	g++ -pg --std=c++17 $(SOURCES) $(INCLUDES) $(DEFINES) -o main $(LIBRARIES)
 
 clean: 
 	rm main

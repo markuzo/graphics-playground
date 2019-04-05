@@ -1,4 +1,5 @@
 main 
+gmon.out
 
 data/
 thirdparty/imgui/
